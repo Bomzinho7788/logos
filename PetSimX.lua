@@ -472,7 +472,7 @@ SettingsTab:CreateLabel("Pet Sims X Interface v1.0", "info", Color3.fromRGB(255,
 
 SettingsTab:CreateParagraph({
     Title = "Sobre esta Interface",
-    Content = "Desenvolvida por Bomzinho e GPT5\nRecursos: Abertura automatica de ovos, Compra de diamantes"
+    Content = "Desenvolvida por Bomzinho e GPT5\nRecursos: Abertura automatica de ovos, Compra de diamantes\nPet Sims X Interface v1.0"
 })
 
 SettingsTab:CreateSection("Controles Rapidoss")
