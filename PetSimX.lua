@@ -19,8 +19,6 @@ local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 -- CONFIGURAÇÃO SALVA
 ----------------------------------------------------------------
 
-Rayfield:LoadConfiguration()
-
 local Window = Rayfield:CreateWindow({
     Name = "Pet Sims X",
     Icon = "gem",
@@ -88,7 +86,10 @@ local ThemeDropdown = nil
 -- Carregar temas salvos
 local function LoadCustomThemes()
     local success, savedThemes = pcall(function()
-        return Rayfield.Flags.CustomThemes and Rayfield.Flags.CustomThemes.CurrentValue or {}
+        if Rayfield.Flags and Rayfield.Flags.CustomThemes then
+            return Rayfield.Flags.CustomThemes.CurrentValue or {}
+        end
+        return {}
     end)
     
     if success and savedThemes then
@@ -105,8 +106,14 @@ end
 
 -- Salvar temas
 local function SaveCustomThemes()
-    Rayfield.Flags.CustomThemes.CurrentValue = CustomThemes
-    Rayfield:SaveConfiguration()
+    if Rayfield.Flags then
+        if not Rayfield.Flags.CustomThemes then
+            Rayfield.Flags.CustomThemes = { CurrentValue = CustomThemes }
+        else
+            Rayfield.Flags.CustomThemes.CurrentValue = CustomThemes
+        end
+        Rayfield:SaveConfiguration()
+    end
 end
 
 -- Atualizar dropdown de temas
@@ -115,7 +122,7 @@ local function UpdateThemesDropdown()
     
     -- Adicionar temas personalizados
     for themeName, _ in pairs(CustomThemes) do
-        table.insert(themeOptions, "⭐ " .. themeName)
+        table.insert(themeOptions, "Custom: " .. themeName)
     end
     
     if ThemeDropdown then
@@ -129,8 +136,8 @@ local function ApplyTheme(themeName)
        themeName == "Bloom" or themeName == "DarkBlue" or themeName == "Green" or 
        themeName == "Light" or themeName == "Ocean" or themeName == "Serenity" then
         Window:ModifyTheme(themeName)
-    elseif themeName:sub(1, 2) == "⭐ " then
-        local customThemeName = themeName:sub(4)
+    elseif themeName:sub(1, 8) == "Custom: " then
+        local customThemeName = themeName:sub(9)
         if CustomThemes[customThemeName] then
             Window:ModifyTheme(CustomThemes[customThemeName])
         end
@@ -195,7 +202,7 @@ local function NotifyStartEggs()
     local plural = (qtd > 1) and "ovos" or "ovo"
     Rayfield:Notify({
         Title = "Iniciando",
-        Content = ("Começando a abrir %d %s do tipo %s..."):format(qtd, plural, eggName),
+        Content = ("Comecando a abrir %d %s do tipo %s..."):format(qtd, plural, eggName),
         Duration = 3,
         Image = "egg"
     })
@@ -214,7 +221,7 @@ local function NotifyStartDiamonds(pack)
     if not pack then return end
     Rayfield:Notify({
         Title = "Iniciando compras",
-        Content = ("Iniciando as compras dos %s (%s)…"):format(pack.name, pack.gemsText),
+        Content = ("Iniciando as compras dos %s (%s)..."):format(pack.name, pack.gemsText),
         Duration = 3,
         Image = "shopping-bag"
     })
@@ -223,7 +230,7 @@ end
 local function NotifyFinishDiamonds()
     Rayfield:Notify({
         Title = "Finalizado",
-        Content = "Concluiu as compras automáticas de packs.",
+        Content = "Concluiu as compras automaticas de packs.",
         Duration = 3,
         Image = "check-circle"
     })
@@ -289,10 +296,10 @@ end
 -- UI: EGGS TAB
 ----------------------------------------------------------------
 
-EggsTab:CreateSection("Configuração de Ovos")
+EggsTab:CreateSection("Configuracao de Ovos")
 
 EggsTab:CreateDropdown({
-    Name = "Selecionar área",
+    Name = "Selecionar area",
     Options = (function()
         local list = {}
         for _, folder in ipairs(EggsDir:GetChildren()) do
@@ -339,7 +346,7 @@ EggsTab:CreateInput({
     end
 })
 
-EggsTab:CreateSection("Automação")
+EggsTab:CreateSection("Automacao")
 
 EggsTab:CreateDropdown({
     Name = "Quantidade de ovos",
@@ -390,7 +397,7 @@ EggsTab:CreateToggle({
 -- UI: DIAMANTES TAB
 ----------------------------------------------------------------
 
-DiamondsTab:CreateSection("Configuração de Diamantes")
+DiamondsTab:CreateSection("Configuracao de Diamantes")
 
 DiamondsTab:CreateDropdown({
     Name = "Selecionar packs",
@@ -423,7 +430,7 @@ DiamondsTab:CreateSlider({
     end
 })
 
-DiamondsTab:CreateSection("Automação de Compras")
+DiamondsTab:CreateSection("Automacao de Compras")
 
 DiamondsTab:CreateToggle({
     Name = "Comprar automaticamente",
@@ -505,7 +512,7 @@ ThemesTab:CreateSection("Selecionar Tema")
 
 -- Dropdown para selecionar temas
 ThemeDropdown = ThemesTab:CreateDropdown({
-    Name = "Temas Disponíveis",
+    Name = "Temas Disponiveis",
     Options = {"Default", "AmberGlow", "Amethyst", "Bloom", "DarkBlue", "Green", "Light", "Ocean", "Serenity"},
     CurrentOption = {"Default"},
     Flag = "SelectedTheme",
@@ -526,7 +533,7 @@ ThemesTab:CreateSection("Criar Tema Personalizado")
 local CustomThemeName = ""
 ThemesTab:CreateInput({
     Name = "Nome do Tema Personalizado",
-    PlaceholderText = "Digite um nome único para seu tema",
+    PlaceholderText = "Digite um nome unico para seu tema",
     RemoveTextAfterFocusLost = false,
     Callback = function(text)
         CustomThemeName = text
@@ -541,6 +548,7 @@ local function CreateColorPicker(name, themeKey)
     ThemesTab:CreateColorPicker({
         Name = name,
         Color = ThemeColors[themeKey],
+        Flag = "ColorPicker_" .. themeKey,
         Callback = function(color)
             ThemeColors[themeKey] = color
         end
@@ -556,10 +564,10 @@ CreateColorPicker("Barra Superior", "Topbar")
 CreateColorPicker("Sombra", "Shadow")
 
 -- Grupo de cores de notificação
-ThemesTab:CreateSection("Cores de Notificação")
+ThemesTab:CreateSection("Cores de Notificacao")
 
-CreateColorPicker("Fundo da Notificação", "NotificationBackground")
-CreateColorPicker("Ações da Notificação", "NotificationActionsBackground")
+CreateColorPicker("Fundo da Notificacao", "NotificationBackground")
+CreateColorPicker("Acoes da Notificacao", "NotificationActionsBackground")
 
 -- Grupo de cores das abas
 ThemesTab:CreateSection("Cores das Abas")
@@ -575,12 +583,12 @@ ThemesTab:CreateSection("Cores dos Elementos")
 
 CreateColorPicker("Fundo do Elemento", "ElementBackground")
 CreateColorPicker("Fundo do Elemento (Hover)", "ElementBackgroundHover")
-CreateColorPicker("Fundo Secundário", "SecondaryElementBackground")
+CreateColorPicker("Fundo Secundario", "SecondaryElementBackground")
 CreateColorPicker("Borda do Elemento", "ElementStroke")
-CreateColorPicker("Borda Secundária", "SecondaryElementStroke")
+CreateColorPicker("Borda Secundaria", "SecondaryElementStroke")
 
 -- Grupo de cores específicas
-ThemesTab:CreateSection("Cores Específicas")
+ThemesTab:CreateSection("Cores Especificas")
 
 CreateColorPicker("Fundo do Slider", "SliderBackground")
 CreateColorPicker("Progresso do Slider", "SliderProgress")
@@ -593,7 +601,7 @@ CreateColorPicker("Borda Toggle Ativado", "ToggleEnabledStroke")
 CreateColorPicker("Borda Toggle Desativado", "ToggleDisabledStroke")
 
 CreateColorPicker("Dropdown Selecionado", "DropdownSelected")
-CreateColorPicker("Dropdown Não Selecionado", "DropdownUnselected")
+CreateColorPicker("Dropdown Nao Selecionado", "DropdownUnselected")
 
 CreateColorPicker("Fundo do Input", "InputBackground")
 CreateColorPicker("Borda do Input", "InputStroke")
@@ -604,7 +612,7 @@ ThemesTab:CreateSection("Gerenciar Temas")
 
 -- Salvar tema personalizado
 ThemesTab:CreateButton({
-    Name = "💾 Salvar Tema Personalizado",
+    Name = "Salvar Tema Personalizado",
     Callback = function()
         if CustomThemeName == "" then
             Rayfield:Notify({
@@ -619,7 +627,7 @@ ThemesTab:CreateButton({
         if CustomThemes[CustomThemeName] then
             Rayfield:Notify({
                 Title = "Aviso",
-                Content = "Tema com este nome já existe. Sobrescrevendo...",
+                Content = "Tema com este nome ja existe. Sobrescrevendo...",
                 Duration = 3,
                 Image = "alert-triangle"
             })
@@ -640,7 +648,7 @@ ThemesTab:CreateButton({
 
 -- Aplicar tema personalizado
 ThemesTab:CreateButton({
-    Name = "🎨 Aplicar Tema Personalizado",
+    Name = "Aplicar Tema Personalizado",
     Callback = function()
         if CustomThemeName == "" then
             Rayfield:Notify({
@@ -655,14 +663,14 @@ ThemesTab:CreateButton({
         if not CustomThemes[CustomThemeName] then
             Rayfield:Notify({
                 Title = "Erro",
-                Content = "Tema não encontrado! Salve o tema primeiro.",
+                Content = "Tema nao encontrado! Salve o tema primeiro.",
                 Duration = 3,
                 Image = "alert-circle"
             })
             return
         end
         
-        ApplyTheme("⭐ " .. CustomThemeName)
+        ApplyTheme("Custom: " .. CustomThemeName)
         Rayfield:Notify({
             Title = "Tema Aplicado",
             Content = ("Tema personalizado '%s' aplicado!"):format(CustomThemeName),
@@ -674,7 +682,7 @@ ThemesTab:CreateButton({
 
 -- Deletar tema personalizado
 ThemesTab:CreateButton({
-    Name = "🗑️ Deletar Tema Personalizado",
+    Name = "Deletar Tema Personalizado",
     Callback = function()
         if CustomThemeName == "" then
             Rayfield:Notify({
@@ -689,7 +697,7 @@ ThemesTab:CreateButton({
         if not CustomThemes[CustomThemeName] then
             Rayfield:Notify({
                 Title = "Erro",
-                Content = "Tema não encontrado!",
+                Content = "Tema nao encontrado!",
                 Duration = 3,
                 Image = "alert-circle"
             })
@@ -711,12 +719,12 @@ ThemesTab:CreateButton({
 
 -- Resetar para tema padrão
 ThemesTab:CreateButton({
-    Name = "🔄 Resetar para Tema Padrão",
+    Name = "Resetar para Tema Padrao",
     Callback = function()
         ThemeColors = GetDefaultThemeTemplate()
         Rayfield:Notify({
             Title = "Tema Resetado",
-            Content = "Cores resetadas para o tema padrão!",
+            Content = "Cores resetadas para o tema padrao!",
             Duration = 3,
             Image = "refresh-cw"
         })
@@ -736,9 +744,9 @@ local function UpdateThemesList()
     for themeName, _ in pairs(CustomThemes) do
         themeCount = themeCount + 1
         if themeNames == "" then
-            themeNames = "• " .. themeName
+            themeNames = "- " .. themeName
         else
-            themeNames = themeNames .. "\n• " .. themeName
+            themeNames = themeNames .. "\n- " .. themeName
         end
     end
     
@@ -753,7 +761,7 @@ end
 -- UI: SETTINGS TAB
 ----------------------------------------------------------------
 
-SettingsTab:CreateSection("Aparência")
+SettingsTab:CreateSection("Aparencia")
 
 SettingsTab:CreateDropdown({
     Name = "Tema da Interface",
@@ -772,21 +780,21 @@ SettingsTab:CreateDropdown({
 })
 
 SettingsTab:CreateToggle({
-    Name = "Animações da Interface",
+    Name = "Animacoes da Interface",
     CurrentValue = true,
     Flag = "InterfaceAnimations",
     Callback = function(v)
         Rayfield:ToggleAnimations(v)
         Rayfield:Notify({
-            Title = "Animações",
-            Content = v and "Animações ativadas" or "Animações desativadas",
+            Title = "Animacoes",
+            Content = v and "Animacoes ativadas" or "Animacoes desativadas",
             Duration = 2,
             Image = v and "play" or "pause"
         })
     end
 })
 
-SettingsTab:CreateSection("Configurações")
+SettingsTab:CreateSection("Configuracoes")
 
 SettingsTab:CreateKeybind({
     Name = "Tecla para Mostrar/Esconder",
@@ -804,12 +812,12 @@ SettingsTab:CreateKeybind({
 })
 
 SettingsTab:CreateButton({
-    Name = "Salvar Configurações",
+    Name = "Salvar Configuracoes",
     Callback = function()
         Rayfield:SaveConfiguration()
         Rayfield:Notify({
-            Title = "Configurações Salvas",
-            Content = "Todas as configurações foram salvas com sucesso!",
+            Title = "Configuracoes Salvas",
+            Content = "Todas as configuracoes foram salvas com sucesso!",
             Duration = 3,
             Image = "save"
         })
@@ -817,31 +825,31 @@ SettingsTab:CreateButton({
 })
 
 SettingsTab:CreateButton({
-    Name = "Carregar Configurações",
+    Name = "Carregar Configuracoes",
     Callback = function()
         Rayfield:LoadConfiguration()
         LoadCustomThemes()
         UpdateThemesDropdown()
         UpdateThemesList()
         Rayfield:Notify({
-            Title = "Configurações Carregadas",
-            Content = "Configurações anteriores carregadas!",
+            Title = "Configuracoes Carregadas",
+            Content = "Configuracoes anteriores carregadas!",
             Duration = 3,
             Image = "download"
         })
     end
 })
 
-SettingsTab:CreateSection("Informações")
+SettingsTab:CreateSection("Informacoes")
 
 SettingsTab:CreateLabel("Pet Sims X Interface v1.0", "info", Color3.fromRGB(255, 255, 255), false)
 
 SettingsTab:CreateParagraph({
     Title = "Sobre esta Interface",
-    Content = "Desenvolvida por Bomzinho e GPT5\nRecursos: Abertura automática de ovos, Compra de diamantes, Criação de temas personalizados"
+    Content = "Desenvolvida por Bomzinho e GPT5\nRecursos: Abertura automatica de ovos, Compra de diamantes, Criacao de temas personalizados"
 })
 
-SettingsTab:CreateSection("Controles Rápidos")
+SettingsTab:CreateSection("Controles Rapidoss")
 
 SettingsTab:CreateButton({
     Name = "Mostrar Interface",
@@ -885,10 +893,13 @@ LoadCustomThemes()
 UpdateThemesDropdown()
 UpdateThemesList()
 
+-- Carregar configuração depois de criar todos os elementos
+Rayfield:LoadConfiguration()
+
 -- Notificação de inicialização
 Rayfield:Notify({
     Title = "Interface Carregada",
-    Content = "Pet Sims X está pronto para uso! Sistema de temas personalizados ativo!",
+    Content = "Pet Sims X esta pronto para uso! Sistema de temas personalizados ativo!",
     Duration = 5,
     Image = "check-circle"
 })
