@@ -16,35 +16,25 @@ local buyDiamond = workspace:WaitForChild("__THINGS")
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 ----------------------------------------------------------------
--- CONFIGURAÇÃO SALVA
+-- CONFIGURAÇÃO SALVA (APENAS SETTINGS)
 ----------------------------------------------------------------
+
+Rayfield:LoadConfiguration()
 
 local Window = Rayfield:CreateWindow({
     Name = "Pet Sims X",
-    Icon = "gem",
-    LoadingTitle = "Carregando Interface...",
+    LoadingTitle = "Carregando...",
     LoadingSubtitle = "Feito por Bomzinho e GPT5",
-    Theme = "Default",
-    ToggleUIKeybind = "K",
-    
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "PetSimsX",
-        FileName = "Settings"
-    },
-    
-    Discord = {
-        Enabled = false,
-        Invite = "noinvitelink",
-        RememberJoins = true
-    },
-    
-    KeySystem = false
+        FileName = "SettingsOnly"
+    }
 })
 
-local EggsTab = Window:CreateTab("Eggs", "egg")
-local DiamondsTab = Window:CreateTab("Diamantes", "gem")
-local SettingsTab = Window:CreateTab("Settings", "settings")
+local EggsTab = Window:CreateTab("Eggs")
+local DiamondsTab = Window:CreateTab("Diamantes")
+local SettingsTab = Window:CreateTab("Settings")
 
 ----------------------------------------------------------------
 -- VARIÁVEIS GERAIS
@@ -65,8 +55,8 @@ local DiamondPacks = {
     [1] = { name = "Tiny Packs", costText = "5B Moedas", gemsText = "25k gemas", id = 1, gems = 25000 },
     [2] = { name = "Packs Médios", costText = "17.5B Moedas", gemsText = "80k gemas", id = 2, gems = 80000 },
     [3] = { name = "Packs Grandes", costText = "40B Moedas Fantasia", gemsText = "135k gemas", id = 3, gems = 135000 },
-    [5] = { name = "Packs Tecnológicos", costText = "400B Moedas Tech", gemsText = "625k gemas", id = 5, gems = 625000 },
-    [8] = { name = "Packs Coloridos", costText = "3B Moedas Coloridas", gemsText = "1.5M gemas", id = 8, gems = 1500000 }
+    [5] = { name = "Packs Tecnológicos", costText = "400B Moedas Tech", gemsText = "625k gemas", id = 5, gems = 625000 }, -- era 4 -> agora 5
+    [8] = { name = "Packs Coloridos", costText = "3B Moedas Coloridas", gemsText = "1.5M gemas", id = 8, gems = 1500000 } -- era 5 -> agora 8
 }
 local DiamondOptionsOrder = {1,2,3,5,8}
 local SelectedDiamondPackKey = nil
@@ -74,7 +64,7 @@ local AutoBuyDiamonds = false
 local AutoBuyDelay = 1
 
 ----------------------------------------------------------------
--- FUNÇÕES AUXILIARES
+-- FUNÇÕES AUXILIARES (Notificações limpas)
 ----------------------------------------------------------------
 
 local function NotifyStartEggs()
@@ -84,9 +74,8 @@ local function NotifyStartEggs()
     local plural = (qtd > 1) and "ovos" or "ovo"
     Rayfield:Notify({
         Title = "Iniciando",
-        Content = ("Comecando a abrir %d %s do tipo %s..."):format(qtd, plural, eggName),
-        Duration = 3,
-        Image = "egg"
+        Content = ("Começando a abrir %d %s do tipo %s..."):format(qtd, plural, eggName),
+        Duration = 3
     })
 end
 
@@ -94,8 +83,7 @@ local function NotifyFinishEggs()
     Rayfield:Notify({
         Title = "Finalizado",
         Content = "Concluiu a abertura dos ovos.",
-        Duration = 3,
-        Image = "check-circle"
+        Duration = 3
     })
 end
 
@@ -103,23 +91,21 @@ local function NotifyStartDiamonds(pack)
     if not pack then return end
     Rayfield:Notify({
         Title = "Iniciando compras",
-        Content = ("Iniciando as compras dos %s (%s)..."):format(pack.name, pack.gemsText),
-        Duration = 3,
-        Image = "shopping-bag"
+        Content = ("Iniciando as compras dos %s (%s)…"):format(pack.name, pack.gemsText),
+        Duration = 3
     })
 end
 
 local function NotifyFinishDiamonds()
     Rayfield:Notify({
         Title = "Finalizado",
-        Content = "Concluiu as compras automaticas de packs.",
-        Duration = 3,
-        Image = "check-circle"
+        Content = "Concluiu as compras automáticas de packs.",
+        Duration = 3
     })
 end
 
 ----------------------------------------------------------------
--- FUNÇÕES DE BUILD DE ARGS
+-- FUNÇÕES DE BUILD DE ARGS (formato EXATO do jogo)
 ----------------------------------------------------------------
 
 local function BuildEggArgs()
@@ -143,6 +129,8 @@ local function BuildEggArgs()
 end
 
 local function BuildDiamondArgsById(packId)
+    -- formato que você mostrou:
+    -- local args = { { { <id> }, { false } } }
     return {
         {
             { packId },
@@ -178,10 +166,9 @@ end
 -- UI: EGGS TAB
 ----------------------------------------------------------------
 
-EggsTab:CreateSection("Configuracao de Ovos")
-
+-- Área
 EggsTab:CreateDropdown({
-    Name = "Selecionar area",
+    Name = "Selecionar área",
     Options = (function()
         local list = {}
         for _, folder in ipairs(EggsDir:GetChildren()) do
@@ -192,27 +179,26 @@ EggsTab:CreateDropdown({
         return list
     end)(),
     CurrentOption = {},
-    Flag = "EggArea",
     Callback = function(opt)
         SelectedArea = opt[1]
         UpdateEggList()
     end
 })
 
+-- Ovo
 EggDropdown = EggsTab:CreateDropdown({
     Name = "Selecionar ovo",
     Options = {},
     CurrentOption = {},
-    Flag = "SelectedEgg",
     Callback = function(opt)
         SelectedEgg = opt[1]
     end
 })
 
+-- Nome manual
 EggsTab:CreateToggle({
     Name = "Colocar nome manualmente",
     CurrentValue = false,
-    Flag = "ManualNameToggle",
     Callback = function(v)
         ManualNameEnabled = v
     end
@@ -222,39 +208,36 @@ EggsTab:CreateInput({
     Name = "Nome do ovo",
     PlaceholderText = "Insira o nome exato",
     RemoveTextAfterFocusLost = false,
-    Flag = "ManualEggName",
     Callback = function(text)
         ManualNameValue = text
     end
 })
 
-EggsTab:CreateSection("Automacao")
-
+-- Quantidade
 EggsTab:CreateDropdown({
     Name = "Quantidade de ovos",
     Options = { "1", "3", "8" },
     CurrentOption = { "1" },
-    Flag = "EggAmount",
     Callback = function(opt)
         SelectedAmount = tonumber(opt[1])
     end
 })
 
+-- Delay
 EggsTab:CreateSlider({
     Name = "Delay (segundos)",
     Range = {0, 5},
     Increment = 1,
     CurrentValue = 1,
-    Flag = "EggDelay",
     Callback = function(val)
         SelectedDelay = val
     end
 })
 
+-- Auto-open (uma notificação no início, outra no fim)
 EggsTab:CreateToggle({
     Name = "Abrir automaticamente",
     CurrentValue = false,
-    Flag = "AutoOpenEggs",
     Callback = function(v)
         AutoOpenEnabled = v
         if v and not AutoOpening then
@@ -276,11 +259,10 @@ EggsTab:CreateToggle({
 })
 
 ----------------------------------------------------------------
--- UI: DIAMANTES TAB
+-- UI: DIAMANTES TAB (Packs renumerados e valores)
 ----------------------------------------------------------------
 
-DiamondsTab:CreateSection("Configuracao de Diamantes")
-
+-- Dropdown de packs (em ordem definida)
 DiamondsTab:CreateDropdown({
     Name = "Selecionar packs",
     Options = (function()
@@ -294,30 +276,28 @@ DiamondsTab:CreateDropdown({
         return list
     end)(),
     CurrentOption = {},
-    Flag = "SelectedDiamondPack",
     Callback = function(opt)
+        -- extrai o número do início da string
         local num = tonumber(opt[1]:match("^(%d+)"))
         SelectedDiamondPackKey = num
     end
 })
 
+-- Delay auto-buy
 DiamondsTab:CreateSlider({
     Name = "Delay Auto-Buy (segundos)",
     Range = {0, 5},
     Increment = 1,
     CurrentValue = 1,
-    Flag = "DiamondDelay",
     Callback = function(val)
         AutoBuyDelay = val
     end
 })
 
-DiamondsTab:CreateSection("Automacao de Compras")
-
+-- Toggle Auto-Buy (uma notificação no começo e no fim)
 DiamondsTab:CreateToggle({
     Name = "Comprar automaticamente",
     CurrentValue = false,
-    Flag = "AutoBuyDiamonds",
     Callback = function(v)
         AutoBuyDiamonds = v
         if v then
@@ -338,6 +318,7 @@ DiamondsTab:CreateToggle({
     end
 })
 
+-- Comprar pack selecionado (único)
 DiamondsTab:CreateButton({
     Name = "Comprar pack selecionado",
     Callback = function()
@@ -345,8 +326,7 @@ DiamondsTab:CreateButton({
             Rayfield:Notify({
                 Title = "Erro",
                 Content = "Escolha um pack antes de comprar.",
-                Duration = 3,
-                Image = "alert-circle"
+                Duration = 3
             })
             return
         end
@@ -358,12 +338,12 @@ DiamondsTab:CreateButton({
         Rayfield:Notify({
             Title = "Comprados",
             Content = ("Comprou os %s e recebeu +%s."):format(pack.name, pack.gemsText),
-            Duration = 3,
-            Image = "shopping-bag"
+            Duration = 3
         })
     end
 })
 
+-- Seção: comprar individual (botões rápidos)
 DiamondsTab:CreateSection("Comprar Individual")
 
 for _, key in ipairs(DiamondOptionsOrder) do
@@ -378,8 +358,7 @@ for _, key in ipairs(DiamondOptionsOrder) do
                 Rayfield:Notify({
                     Title = "Comprados",
                     Content = ("Comprou os %s e recebeu +%s."):format(p.name, p.gemsText),
-                    Duration = 2,
-                    Image = "shopping-bag"
+                    Duration = 2
                 })
             end
         })
@@ -387,143 +366,48 @@ for _, key in ipairs(DiamondOptionsOrder) do
 end
 
 ----------------------------------------------------------------
--- UI: SETTINGS TAB
+-- SETTINGS TAB
 ----------------------------------------------------------------
 
-SettingsTab:CreateSection("Aparencia")
+SettingsTab:CreateSection("Aparência")
 
 SettingsTab:CreateDropdown({
-    Name = "Tema da Interface",
-    Options = {"Default", "AmberGlow", "Amethyst", "Bloom", "DarkBlue", "Green", "Light", "Ocean", "Serenity"},
+    Name = "Tema",
+    Options = {"Default", "Aether", "Discord", "Dark", "Light"},
     CurrentOption = {"Default"},
-    Flag = "InterfaceTheme",
+    Flag = "ThemeSetting",
     Callback = function(opt)
-        Window:ModifyTheme(opt[1])
-        Rayfield:Notify({
-            Title = "Tema Alterado",
-            Content = ("Tema mudado para: %s"):format(opt[1]),
-            Duration = 3,
-            Image = "palette"
-        })
+        Rayfield:LoadTheme(opt[1])
     end
 })
 
 SettingsTab:CreateToggle({
-    Name = "Animacoes da Interface",
+    Name = "Animações da UI",
     CurrentValue = true,
-    Flag = "InterfaceAnimations",
+    Flag = "AnimationsSetting",
     Callback = function(v)
         Rayfield:ToggleAnimations(v)
-        Rayfield:Notify({
-            Title = "Animacoes",
-            Content = v and "Animacoes ativadas" or "Animacoes desativadas",
-            Duration = 2,
-            Image = v and "play" or "pause"
-        })
     end
 })
 
-SettingsTab:CreateSection("Configuracoes")
-
-SettingsTab:CreateKeybind({
-    Name = "Tecla para Mostrar/Esconder",
-    CurrentKeybind = "K",
-    HoldToInteract = false,
-    Flag = "ToggleUIKeybind",
-    Callback = function(Keybind)
-        Rayfield:Notify({
-            Title = "Tecla Alterada",
-            Content = ("Tecla definida para: %s"):format(Keybind),
-            Duration = 2,
-            Image = "keyboard"
-        })
-    end,
-})
-
 SettingsTab:CreateButton({
-    Name = "Salvar Configuracoes",
+    Name = "Forçar salvar settings",
     Callback = function()
         Rayfield:SaveConfiguration()
         Rayfield:Notify({
-            Title = "Configuracoes Salvas",
-            Content = "Todas as configuracoes foram salvas com sucesso!",
-            Duration = 3,
-            Image = "save"
+            Title = "Salvo",
+            Content = "Configurações salvas.",
+            Duration = 2
         })
-    end
-})
-
-SettingsTab:CreateButton({
-    Name = "Carregar Configuracoes",
-    Callback = function()
-        Rayfield:LoadConfiguration()
-        Rayfield:Notify({
-            Title = "Configuracoes Carregadas",
-            Content = "Configuracoes anteriores carregadas!",
-            Duration = 3,
-            Image = "download"
-        })
-    end
-})
-
-SettingsTab:CreateSection("Informacoes")
-
-SettingsTab:CreateParagraph({
-    Title = "Sobre esta Interface",
-    Content = "Desenvolvida por Bomzinho e GPT5\nRecursos: Abertura automatica de ovos, Compra de diamantes\nPet Sims X Interface v1.0"
-})
-
-SettingsTab:CreateSection("Controles Rapidoss")
-
-SettingsTab:CreateButton({
-    Name = "Mostrar Interface",
-    Callback = function()
-        Rayfield:SetVisibility(true)
-        Rayfield:Notify({
-            Title = "Interface",
-            Content = "Interface mostrada",
-            Duration = 2,
-            Image = "eye"
-        })
-    end
-})
-
-SettingsTab:CreateButton({
-    Name = "Esconder Interface",
-    Callback = function()
-        Rayfield:SetVisibility(false)
-        Rayfield:Notify({
-            Title = "Interface",
-            Content = "Interface escondida",
-            Duration = 2,
-            Image = "eye-off"
-        })
-    end
-})
-
-SettingsTab:CreateButton({
-    Name = "Fechar Interface",
-    Callback = function()
-        Rayfield:Destroy()
     end
 })
 
 ----------------------------------------------------------------
--- INICIALIZAÇÃO
+-- FINALIZAÇÃO
 ----------------------------------------------------------------
 
--- Carregar configuração depois de criar todos os elementos
-Rayfield:LoadConfiguration()
-
--- Notificação de inicialização
 Rayfield:Notify({
-    Title = "Interface Carregada",
-    Content = "Pet Sims X esta pronto para uso!",
-    Duration = 5,
-    Image = "check-circle"
+    Title = "Pronto",
+    Content = "Interface carregada com sucesso.",
+    Duration = 3
 })
-
--- Atualizar lista de ovos se já tiver uma área selecionada
-if SelectedArea then
-    UpdateEggList()
-end
