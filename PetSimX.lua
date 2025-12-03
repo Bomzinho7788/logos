@@ -3,21 +3,18 @@
 --========================================================--
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local EggsDir = ReplicatedStorage:WaitForChild("Game"):WaitForChild("Eggs")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local EggsDir = ReplicatedStorage:WaitForChild("__DIRECTORY"):WaitForChild("Eggs")
 
-local buyEgg = workspace:WaitForChild("__THINGS")
-    :WaitForChild("__REMOTES")
-    :WaitForChild("buy egg")
-
-local buyDiamond = workspace:WaitForChild("__THINGS")
-    :WaitForChild("__REMOTES")
-    :WaitForChild("buy diamondpack")
+-- REMOTES CORRETOS --------------------------
+local Things = workspace:WaitForChild("__THINGS")
+local Remotes = Things:WaitForChild("__REMOTES")
+local EggRemote = Remotes:WaitForChild("buy egg")
+local DiamondRemote = Remotes:WaitForChild("buy diamondpack")
+------------------------------------------------
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-
-----------------------------------------------------------------
--- CONFIGURAÇÃO SALVA (APENAS SETTINGS)
-----------------------------------------------------------------
 
 Rayfield:LoadConfiguration()
 
@@ -36,11 +33,9 @@ local EggsTab = Window:CreateTab("Eggs")
 local DiamondsTab = Window:CreateTab("Diamantes")
 local SettingsTab = Window:CreateTab("Settings")
 
-----------------------------------------------------------------
--- VARIÁVEIS GERAIS
-----------------------------------------------------------------
-
--- Eggs
+-------------------------------------------------
+-- VARS
+-------------------------------------------------
 local SelectedArea = nil
 local SelectedEgg = nil
 local ManualNameEnabled = false
@@ -50,364 +45,639 @@ local SelectedDelay = 1
 local AutoOpenEnabled = false
 local AutoOpening = false
 
--- Diamonds
-local DiamondPacks = {
-    [1] = { name = "Tiny Packs", costText = "5B Moedas", gemsText = "25k gemas", id = 1, gems = 25000 },
-    [2] = { name = "Packs Médios", costText = "17.5B Moedas", gemsText = "80k gemas", id = 2, gems = 80000 },
-    [3] = { name = "Packs Grandes", costText = "40B Moedas Fantasia", gemsText = "135k gemas", id = 3, gems = 135000 },
-    [5] = { name = "Packs Tecnológicos", costText = "400B Moedas Tech", gemsText = "625k gemas", id = 5, gems = 625000 }, -- era 4 -> agora 5
-    [8] = { name = "Packs Coloridos", costText = "3B Moedas Coloridas", gemsText = "1.5M gemas", id = 8, gems = 1500000 } -- era 5 -> agora 8
-}
-local DiamondOptionsOrder = {1,2,3,5,8}
-local SelectedDiamondPackKey = nil
+-- DIAMONDS
+local DiamondPacks = {} -- Será preenchido dinamicamente
+local SelectedDiamond = nil
 local AutoBuyDiamonds = false
 local AutoBuyDelay = 1
 
-----------------------------------------------------------------
--- FUNÇÕES AUXILIARES (Notificações limpas)
-----------------------------------------------------------------
+-- Moedas
+local CurrencyIcons = {
+    ["rbxassetid://6501310411"] = "Coins",
+    ["rbxassetid://6501310291"] = "Fantasy Coins", 
+    ["rbxassetid://6501310518"] = "Tech Coins"
+}
 
-local function NotifyStartEggs()
-    local eggName = ManualNameEnabled and ManualNameValue or SelectedEgg
-    if not eggName or eggName == "" then return end
-    local qtd = SelectedAmount or 1
-    local plural = (qtd > 1) and "ovos" or "ovo"
+-------------------------------------------------
+-- NOTIFICAÇÕES
+-------------------------------------------------
+
+local function Notify(title, text)
     Rayfield:Notify({
-        Title = "Iniciando",
-        Content = ("Começando a abrir %d %s do tipo %s..."):format(qtd, plural, eggName),
+        Title = title,
+        Content = text,
         Duration = 3
     })
 end
 
-local function NotifyFinishEggs()
-    Rayfield:Notify({
-        Title = "Finalizado",
-        Content = "Concluiu a abertura dos ovos.",
-        Duration = 3
-    })
+-------------------------------------------------
+-- VERIFICAR SE EGGSDIR EXISTE
+-------------------------------------------------
+if not EggsDir then
+    Notify("Erro", "Não foi possível encontrar Eggs em __DIRECTORY")
+    EggsDir = Instance.new("Folder")
+else
+    Notify("Sucesso", "Eggs encontrado em __DIRECTORY")
 end
 
-local function NotifyStartDiamonds(pack)
-    if not pack then return end
-    Rayfield:Notify({
-        Title = "Iniciando compras",
-        Content = ("Iniciando as compras dos %s (%s)…"):format(pack.name, pack.gemsText),
-        Duration = 3
-    })
+-------------------------------------------------
+-- DETECTAR INFO DOS PACKS DE DIAMANTES
+-------------------------------------------------
+local function GetDiamondPackInfo(packName)
+    local gui = Player.PlayerGui:FindFirstChild("Diamonds Animation")
+    if not gui then return nil end
+    
+    local shop = gui:FindFirstChild("ExclusiveShop")
+    if not shop then return nil end
+    
+    local container = shop.Frame:FindFirstChild("Container")
+    if not container then return nil end
+    
+    local diamonds = container:FindFirstChild("Diamonds")
+    if not diamonds then return nil end
+    
+    if packName == "Tech Diamonds" then
+        -- Pack 4 (Tech Diamonds) - BestCurrency
+        local bestCurrency = diamonds:FindFirstChild("BestCurrency")
+        if bestCurrency and bestCurrency:IsA("TextButton") then
+            local amount = bestCurrency:FindFirstChild("Amount")
+            local price = bestCurrency:FindFirstChild("Price")
+            
+            if amount and price then
+                local robux = price:FindFirstChild("Robux")
+                local icon = price:FindFirstChild("RobuxIcon")
+                
+                if robux and icon then
+                    local currencyType = CurrencyIcons[icon.Image] or "Unknown"
+                    return {
+                        DisplayName = "Tech Diamonds",
+                        Amount = amount.Text,
+                        Price = robux.Text,
+                        Currency = currencyType,
+                        PackId = 4
+                    }
+                end
+            end
+        end
+    else
+        -- Packs 1-3 (Tiny, Medium, Large) - CurrencyGroup
+        local currencyGroup = diamonds:FindFirstChild("CurrencyGroup")
+        if currencyGroup then
+            for _, child in ipairs(currencyGroup:GetChildren()) do
+                if child:IsA("TextButton") and child.Name == "Currency" then
+                    local title = child:FindFirstChild("Title")
+                    if title and title.Text == packName then
+                        local amount = child:FindFirstChild("Amount")
+                        local price = child:FindFirstChild("Price")
+                        
+                        if amount and price then
+                            local robux = price:FindFirstChild("Robux")
+                            local icon = price:FindFirstChild("RobuxIcon")
+                            
+                            if robux and icon then
+                                local currencyType = CurrencyIcons[icon.Image] or "Unknown"
+                                
+                                -- Determinar PackId baseado no nome
+                                local packId = 0
+                                if packName == "Tiny" then
+                                    packId = 1
+                                elseif packName == "Medium" then
+                                    packId = 2
+                                elseif packName == "Large" then
+                                    packId = 3
+                                end
+                                
+                                return {
+                                    DisplayName = packName .. " Diamonds",
+                                    Amount = amount.Text,
+                                    Price = robux.Text,
+                                    Currency = currencyType,
+                                    PackId = packId
+                                }
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return nil
 end
 
-local function NotifyFinishDiamonds()
-    Rayfield:Notify({
-        Title = "Finalizado",
-        Content = "Concluiu as compras automáticas de packs.",
-        Duration = 3
-    })
+-- Função para obter todos os packs disponíveis com formato bonito
+local function GetAllDiamondPacks()
+    local packs = {}
+    local packInfoList = {}
+    
+    local gui = Player.PlayerGui
+    
+    if gui and gui:FindFirstChild("ExclusiveShop") then
+        local container = gui.ExclusiveShop.Frame.Container
+        local diamonds = container and container.Diamonds
+        
+        if diamonds then
+            -- Verificar BestCurrency (Tech Diamonds)
+            local bestCurrency = diamonds:FindFirstChild("BestCurrency")
+            if bestCurrency and bestCurrency:IsA("TextButton") then
+                local amount = bestCurrency:FindFirstChild("Amount")
+                local price = bestCurrency:FindFirstChild("Price")
+                
+                if amount and price then
+                    local robux = price:FindFirstChild("Robux")
+                    local icon = price:FindFirstChild("RobuxIcon")
+                    
+                    if robux and icon then
+                        local currencyType = CurrencyIcons[icon.Image] or "Unknown"
+                        local displayText = string.format("Tech Diamonds | %s | %s | ID: 4", 
+                            amount.Text, robux.Text .. " " .. currencyType)
+                        
+                        table.insert(packs, displayText)
+                        packInfoList[displayText] = {
+                            DisplayName = "Tech Diamonds",
+                            Amount = amount.Text,
+                            Price = robux.Text,
+                            Currency = currencyType,
+                            PackId = 4
+                        }
+                    end
+                end
+            end
+            
+            -- Verificar CurrencyGroup (Tiny, Medium, Large)
+            local currencyGroup = diamonds:FindFirstChild("CurrencyGroup")
+            if currencyGroup then
+                for _, child in ipairs(currencyGroup:GetChildren()) do
+                    if child:IsA("TextButton") and child.Name == "Currency" then
+                        local title = child:FindFirstChild("Title")
+                        local amount = child:FindFirstChild("Amount")
+                        local price = child:FindFirstChild("Price")
+                        
+                        if title and amount and price then
+                            local robux = price:FindFirstChild("Robux")
+                            local icon = price:FindFirstChild("RobuxIcon")
+                            
+                            if robux and icon then
+                                local currencyType = CurrencyIcons[icon.Image] or "Unknown"
+                                
+                                -- Determinar PackId baseado no nome
+                                local packId = 0
+                                if title.Text == "Tiny" then
+                                    packId = 1
+                                elseif title.Text == "Medium" then
+                                    packId = 2
+                                elseif title.Text == "Large" then
+                                    packId = 3
+                                end
+                                
+                                local displayText = string.format("%s Diamonds | %s | %s | ID: %d", 
+                                    title.Text, amount.Text, robux.Text .. " " .. currencyType, packId)
+                                
+                                table.insert(packs, displayText)
+                                packInfoList[displayText] = {
+                                    DisplayName = title.Text .. " Diamonds",
+                                    Amount = amount.Text,
+                                    Price = robux.Text,
+                                    Currency = currencyType,
+                                    PackId = packId
+                                }
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return packs, packInfoList
 end
 
-----------------------------------------------------------------
--- FUNÇÕES DE BUILD DE ARGS (formato EXATO do jogo)
-----------------------------------------------------------------
+-------------------------------------------------
+-- ATUALIZAR LISTA DE DIAMANTES DINAMICAMENTE
+-------------------------------------------------
+local DiamondPackInfoList = {}
 
+local function UpdateDiamondPacks()
+    local availablePacks, packInfo = GetAllDiamondPacks()
+    DiamondPacks = availablePacks
+    DiamondPackInfoList = packInfo
+    return availablePacks
+end
+
+-------------------------------------------------
+-- BUILD DE ARGUMENTO DE OVO (FORMATO REAL)
+-------------------------------------------------
 local function BuildEggArgs()
-    local eggName = ManualNameEnabled and ManualNameValue or SelectedEgg
-    if not eggName or eggName == "" then return nil end
+    local egg = ManualNameEnabled and ManualNameValue or SelectedEgg
+    if not egg then return end
 
     return {
         {
-            {
-                eggName,
-                SelectedAmount == 3,
-                SelectedAmount == 8
-            },
-            {
-                false,
-                false,
-                false
-            }
+            egg,
+            (SelectedAmount == 3),
+            (SelectedAmount == 8)
         }
     }
 end
 
-local function BuildDiamondArgsById(packId)
-    -- formato que você mostrou:
-    -- local args = { { { <id> }, { false } } }
-    return {
-        {
-            { packId },
-            { false }
-        }
-    }
-end
-
-----------------------------------------------------------------
--- ATUALIZAR LISTA DE OVOS
-----------------------------------------------------------------
-
+-------------------------------------------------
+-- UPDATE LISTA DE OVOS
+-------------------------------------------------
 local EggDropdown = nil
 
 local function UpdateEggList()
     if not SelectedArea then return end
-    local areaFolder = EggsDir:FindFirstChild(SelectedArea)
-    if not areaFolder then return end
+    
+    -- Verificar se EggsDir existe
+    if not EggsDir or EggsDir.Name == "Folder" then
+        Notify("Erro", "Diretório de eggs não encontrado")
+        return
+    end
+    
+    local area = EggsDir:FindFirstChild(SelectedArea)
+    if not area then 
+        Notify("Erro", "Área não encontrada: " .. SelectedArea)
+        return 
+    end
 
     local list = {}
-    for _, egg in ipairs(areaFolder:GetChildren()) do
+    for _, egg in ipairs(area:GetChildren()) do
         if egg:IsA("Folder") then
             table.insert(list, egg.Name)
         end
     end
 
-    if EggDropdown then
+    if EggDropdown then 
         EggDropdown:Refresh(list)
+        Notify("Atualizado", string.format("%d ovos encontrados em %s", #list, SelectedArea))
     end
 end
 
-----------------------------------------------------------------
--- UI: EGGS TAB
-----------------------------------------------------------------
+-------------------------------------------------
+-- UI EGGS
+-------------------------------------------------
 
--- Área
 EggsTab:CreateDropdown({
     Name = "Selecionar área",
     Options = (function()
-        local list = {}
-        for _, folder in ipairs(EggsDir:GetChildren()) do
-            if folder:IsA("Folder") then
-                table.insert(list, folder.Name)
+        local t = {}
+        if EggsDir and EggsDir.Name ~= "Folder" then
+            for _, f in ipairs(EggsDir:GetChildren()) do
+                if f:IsA("Folder") then 
+                    table.insert(t, f.Name) 
+                end
             end
+        else
+            table.insert(t, "Diretório não encontrado")
         end
-        return list
+        return t
     end)(),
     CurrentOption = {},
     Callback = function(opt)
         SelectedArea = opt[1]
-        UpdateEggList()
+        if SelectedArea ~= "Diretório não encontrado" then
+            UpdateEggList()
+        end
     end
 })
 
--- Ovo
 EggDropdown = EggsTab:CreateDropdown({
     Name = "Selecionar ovo",
     Options = {},
     CurrentOption = {},
     Callback = function(opt)
         SelectedEgg = opt[1]
+        if SelectedEgg then
+            Notify("Ovo Selecionado", SelectedEgg)
+        end
     end
 })
 
--- Nome manual
 EggsTab:CreateToggle({
-    Name = "Colocar nome manualmente",
+    Name = "Nome manual",
     CurrentValue = false,
     Callback = function(v)
         ManualNameEnabled = v
+        if v then
+            Notify("Modo Manual", "Digite o nome exato do ovo")
+        end
     end
 })
 
 EggsTab:CreateInput({
-    Name = "Nome do ovo",
-    PlaceholderText = "Insira o nome exato",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(text)
-        ManualNameValue = text
+    Name = "Nome exato do ovo",
+    PlaceholderText = "Ex: Cracked Egg",
+    Callback = function(t)
+        ManualNameValue = t
+        Notify("Nome Definido", "Ovo: " .. t)
     end
 })
 
--- Quantidade
 EggsTab:CreateDropdown({
-    Name = "Quantidade de ovos",
-    Options = { "1", "3", "8" },
-    CurrentOption = { "1" },
+    Name = "Quantidade",
+    Options = {"1", "3", "8"},
+    CurrentOption = {"1"},
     Callback = function(opt)
         SelectedAmount = tonumber(opt[1])
+        Notify("Quantidade", "Abrir " .. opt[1] .. " ovos")
     end
 })
 
--- Delay
 EggsTab:CreateSlider({
     Name = "Delay (segundos)",
-    Range = {0, 5},
-    Increment = 1,
+    Range = {0.1, 10},
+    Increment = 0.1,
     CurrentValue = 1,
-    Callback = function(val)
-        SelectedDelay = val
+    Callback = function(v)
+        SelectedDelay = v
+        Notify("Delay", string.format("%.1f segundos", v))
     end
 })
 
--- Auto-open (uma notificação no início, outra no fim)
 EggsTab:CreateToggle({
-    Name = "Abrir automaticamente",
+    Name = "Auto abrir ovos",
     CurrentValue = false,
     Callback = function(v)
         AutoOpenEnabled = v
         if v and not AutoOpening then
             AutoOpening = true
+            Notify("Iniciando", "Auto open ligado")
             task.spawn(function()
-                NotifyStartEggs()
+                local count = 0
                 while AutoOpenEnabled do
                     local args = BuildEggArgs()
                     if args then
-                        buyEgg:InvokeServer(unpack(args))
+                        local success, errorMsg = pcall(function()
+                            EggRemote:InvokeServer(unpack(args))
+                        end)
+                        
+                        if success then
+                            count = count + 1
+                            if count % 10 == 0 then
+                                Notify("Progresso", string.format("%d ovos abertos", count))
+                            end
+                        else
+                            Notify("Erro", "Falha ao abrir ovo: " .. tostring(errorMsg))
+                        end
                     end
                     task.wait(SelectedDelay)
                 end
                 AutoOpening = false
-                NotifyFinishEggs()
+                Notify("Finalizado", string.format("Total: %d ovos abertos", count))
             end)
+        else
+            Notify("Auto Open", "Desligado")
         end
     end
 })
 
-----------------------------------------------------------------
--- UI: DIAMANTES TAB (Packs renumerados e valores)
-----------------------------------------------------------------
+EggsTab:CreateButton({
+    Name = "Abrir 1 ovo agora",
+    Callback = function()
+        local args = BuildEggArgs()
+        if args then
+            local success, errorMsg = pcall(function()
+                EggRemote:InvokeServer(unpack(args))
+            end)
+            
+            if success then
+                Notify("Sucesso", "Ovo aberto!")
+            else
+                Notify("Erro", "Falha: " .. tostring(errorMsg))
+            end
+        else
+            Notify("Erro", "Selecione um ovo primeiro")
+        end
+    end
+})
 
--- Dropdown de packs (em ordem definida)
-DiamondsTab:CreateDropdown({
-    Name = "Selecionar packs",
-    Options = (function()
-        local list = {}
-        for _, key in ipairs(DiamondOptionsOrder) do
-            local p = DiamondPacks[key]
-            if p then
-                table.insert(list, tostring(key) .. " - " .. p.name .. " (" .. p.gemsText .. " / " .. p.costText .. ")")
+-------------------------------------------------
+-- UI DIAMANTES
+-------------------------------------------------
+local DiamondInfoLabel = DiamondsTab:CreateLabel("Atualize a lista para ver os packs disponíveis")
+
+-- Atualizar lista de packs dinamicamente
+local availablePacks = UpdateDiamondPacks()
+
+local DiamondDropdown = nil
+local SelectedPackInfo = nil
+
+-- Função para criar/atualizar o dropdown
+local function CreateDiamondDropdown()
+    if DiamondDropdown then
+        DiamondDropdown:Destroy()
+    end
+    
+    DiamondDropdown = DiamondsTab:CreateDropdown({
+        Name = "Selecionar Pack de Diamantes",
+        Options = DiamondPacks,
+        CurrentOption = DiamondPacks[1] and {DiamondPacks[1]} or {},
+        Callback = function(opt)
+            local selectedOption = opt[1]
+            SelectedDiamond = selectedOption
+            SelectedPackInfo = DiamondPackInfoList[selectedOption]
+            
+            if SelectedPackInfo then
+                DiamondInfoLabel:Set(
+                    string.format(
+                        "Pack: %s\nQuantidade: %s diamantes\nPreço: %s %s\nID do Pack: %d",
+                        SelectedPackInfo.DisplayName,
+                        SelectedPackInfo.Amount,
+                        SelectedPackInfo.Price,
+                        SelectedPackInfo.Currency,
+                        SelectedPackInfo.PackId
+                    ), 
+                    4483362458, 
+                    Color3.fromRGB(255, 255, 255), 
+                    false
+                )
+                Notify("Pack Selecionado", SelectedPackInfo.DisplayName)
+            else
+                DiamondInfoLabel:Set("Informações do pack não disponíveis", 4483362458, Color3.fromRGB(255, 255, 255), false)
             end
         end
-        return list
-    end)(),
-    CurrentOption = {},
-    Callback = function(opt)
-        -- extrai o número do início da string
-        local num = tonumber(opt[1]:match("^(%d+)"))
-        SelectedDiamondPackKey = num
+    })
+    
+    if #DiamondPacks > 0 and DiamondPackInfoList[DiamondPacks[1]] then
+        SelectedPackInfo = DiamondPackInfoList[DiamondPacks[1]]
+        DiamondInfoLabel:Set(
+            string.format(
+                "Pack: %s\nQuantidade: %s diamantes\nPreço: %s %s\nID do Pack: %d",
+                SelectedPackInfo.DisplayName,
+                SelectedPackInfo.Amount,
+                SelectedPackInfo.Price,
+                SelectedPackInfo.Currency,
+                SelectedPackInfo.PackId
+            ), 
+            4483362458, 
+            Color3.fromRGB(255, 255, 255), 
+            false
+        )
     end
-})
+end
 
--- Delay auto-buy
+-- Criar dropdown inicial
+CreateDiamondDropdown()
+
 DiamondsTab:CreateSlider({
-    Name = "Delay Auto-Buy (segundos)",
-    Range = {0, 5},
-    Increment = 1,
+    Name = "Delay entre compras (segundos)",
+    Range = {0.5, 10},
+    Increment = 0.5,
     CurrentValue = 1,
-    Callback = function(val)
-        AutoBuyDelay = val
+    Callback = function(v)
+        AutoBuyDelay = v
+        Notify("Delay", string.format("%.1f segundos", v))
     end
 })
 
--- Toggle Auto-Buy (uma notificação no começo e no fim)
 DiamondsTab:CreateToggle({
     Name = "Comprar automaticamente",
     CurrentValue = false,
     Callback = function(v)
         AutoBuyDiamonds = v
         if v then
+            if not SelectedPackInfo then
+                Notify("Erro", "Selecione um pack primeiro")
+                return
+            end
+            
+            Notify("Iniciando", "Auto compra ligada - " .. SelectedPackInfo.DisplayName)
             task.spawn(function()
-                local pack = DiamondPacks[SelectedDiamondPackKey]
-                NotifyStartDiamonds(pack)
-                while AutoBuyDiamonds do
-                    if SelectedDiamondPackKey and DiamondPacks[SelectedDiamondPackKey] then
-                        local chosen = DiamondPacks[SelectedDiamondPackKey]
-                        local args = BuildDiamondArgsById(chosen.id)
-                        buyDiamond:InvokeServer(unpack(args))
+                local count = 0
+                while AutoBuyDiamonds and SelectedPackInfo do
+                    local args = {
+                        {SelectedPackInfo.PackId}
+                    }
+                    
+                    local success, errorMsg = pcall(function()
+                        DiamondRemote:InvokeServer(unpack(args))
+                    end)
+                    
+                    if success then
+                        count = count + 1
+                        Notify("Comprado", SelectedPackInfo.DisplayName .. " (" .. count .. ")")
+                    else
+                        Notify("Erro", "Falha na compra: " .. tostring(errorMsg))
                     end
+                    
                     task.wait(AutoBuyDelay)
                 end
-                NotifyFinishDiamonds()
+                Notify("Finalizado", string.format("Total: %d packs comprados", count))
             end)
+        else
+            Notify("Auto Compra", "Desligada")
         end
     end
 })
 
--- Comprar pack selecionado (único)
 DiamondsTab:CreateButton({
-    Name = "Comprar pack selecionado",
+    Name = "Comprar 1 vez",
     Callback = function()
-        if not SelectedDiamondPackKey or not DiamondPacks[SelectedDiamondPackKey] then
-            Rayfield:Notify({
-                Title = "Erro",
-                Content = "Escolha um pack antes de comprar.",
-                Duration = 3
-            })
+        if not SelectedPackInfo then
+            Notify("Erro", "Selecione um pack primeiro.")
             return
         end
 
-        local pack = DiamondPacks[SelectedDiamondPackKey]
-        local args = BuildDiamondArgsById(pack.id)
-        buyDiamond:InvokeServer(unpack(args))
-
-        Rayfield:Notify({
-            Title = "Comprados",
-            Content = ("Comprou os %s e recebeu +%s."):format(pack.name, pack.gemsText),
-            Duration = 3
-        })
+        local args = {
+            {SelectedPackInfo.PackId}
+        }
+        
+        local success, errorMsg = pcall(function()
+            DiamondRemote:InvokeServer(unpack(args))
+        end)
+        
+        if success then
+            Notify("Sucesso", SelectedPackInfo.DisplayName .. " comprado!")
+        else
+            Notify("Erro", "Falha: " .. tostring(errorMsg))
+        end
     end
 })
 
--- Seção: comprar individual (botões rápidos)
-DiamondsTab:CreateSection("Comprar Individual")
-
-for _, key in ipairs(DiamondOptionsOrder) do
-    local p = DiamondPacks[key]
-    if p then
-        DiamondsTab:CreateButton({
-            Name = "Comprar " .. p.name,
-            Callback = function()
-                local args = BuildDiamondArgsById(p.id)
-                buyDiamond:InvokeServer(unpack(args))
-
-                Rayfield:Notify({
-                    Title = "Comprados",
-                    Content = ("Comprou os %s e recebeu +%s."):format(p.name, p.gemsText),
-                    Duration = 2
-                })
-            end
-        })
+DiamondsTab:CreateButton({
+    Name = "Atualizar lista de packs",
+    Callback = function()
+        UpdateDiamondPacks()
+        CreateDiamondDropdown()
+        Notify("Atualizado", "Lista de packs atualizada: " .. #DiamondPacks .. " packs encontrados")
     end
-end
+})
 
-----------------------------------------------------------------
--- SETTINGS TAB
-----------------------------------------------------------------
-
-SettingsTab:CreateSection("Aparência")
+-------------------------------------------------
+-- SETTINGS
+-------------------------------------------------
 
 SettingsTab:CreateDropdown({
     Name = "Tema",
-    Options = {"Default", "Aether", "Discord", "Dark", "Light"},
+    Options = {"Default","Aether","Discord","Dark","Light","Midnight","Aqua"},
     CurrentOption = {"Default"},
-    Flag = "ThemeSetting",
     Callback = function(opt)
         Rayfield:LoadTheme(opt[1])
+        Notify("Tema", "Tema alterado para: " .. opt[1])
     end
 })
 
 SettingsTab:CreateToggle({
-    Name = "Animações da UI",
+    Name = "Animações",
     CurrentValue = true,
-    Flag = "AnimationsSetting",
     Callback = function(v)
         Rayfield:ToggleAnimations(v)
+        Notify("Animações", v and "Ativadas" or "Desativadas")
+    end
+})
+
+SettingsTab:CreateToggle({
+    Name = "Notificações",
+    CurrentValue = true,
+    Callback = function(v)
+        Notify("Notificações", v and "Ativadas" or "Desativadas")
     end
 })
 
 SettingsTab:CreateButton({
-    Name = "Forçar salvar settings",
+    Name = "Salvar configurações",
     Callback = function()
         Rayfield:SaveConfiguration()
-        Rayfield:Notify({
-            Title = "Salvo",
-            Content = "Configurações salvas.",
-            Duration = 2
-        })
+        Notify("Salvo", "Configurações salvas com sucesso.")
     end
 })
 
-----------------------------------------------------------------
--- FINALIZAÇÃO
-----------------------------------------------------------------
-
-Rayfield:Notify({
-    Title = "Pronto",
-    Content = "Interface carregada com sucesso.",
-    Duration = 3
+SettingsTab:CreateButton({
+    Name = "Recarregar Interface",
+    Callback = function()
+        Notify("Recarregando", "A interface será recarregada...")
+        wait(1)
+        Rayfield:Destroy()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/seu-repositorio/script.lua"))()
+    end
 })
+
+SettingsTab:CreateButton({
+    Name = "Fechar Interface",
+    Callback = function()
+        Rayfield:Destroy()
+        Notify("Interface", "Interface fechada")
+    end
+})
+
+-------------------------------------------------
+
+Notify("Pronto", "Interface Pet Sims X carregada!")
+if #DiamondPacks > 0 then
+    Notify("Packs Encontrados", string.format("%d packs de diamantes disponíveis", #DiamondPacks))
+else
+    Notify("Aviso", "Nenhum pack de diamantes encontrado. Clique em 'Atualizar lista'")
+end
+
+-- Verificar se EggsDir tem conteúdo
+if EggsDir and EggsDir.Name ~= "Folder" then
+    local eggCount = 0
+    for _, area in ipairs(EggsDir:GetChildren()) do
+        if area:IsA("Folder") then
+            eggCount = eggCount + 1
+        end
+    end
+    Notify("Eggs", string.format("%d áreas de ovos encontradas", eggCount))
+else
+    Notify("Aviso", "Diretório de eggs não encontrado em __DIRECTORY")
+end
