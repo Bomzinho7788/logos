@@ -31,7 +31,6 @@ local Window = Rayfield:CreateWindow({
 
 local EggsTab = Window:CreateTab("Eggs")
 local DiamondsTab = Window:CreateTab("Diamantes")
-local SettingsTab = Window:CreateTab("Settings")
 
 -------------------------------------------------
 -- VARS
@@ -454,7 +453,6 @@ EggsTab:CreateButton({
 -------------------------------------------------
 -- UI DIAMANTES
 -------------------------------------------------
-local DiamondInfoLabel = DiamondsTab:CreateLabel("Atualize a lista para ver os packs disponíveis")
 
 -- Atualizar lista de packs dinamicamente
 local availablePacks = UpdateDiamondPacks()
@@ -497,23 +495,6 @@ local function CreateDiamondDropdown()
             end
         end
     })
-    
-    if #DiamondPacks > 0 and DiamondPackInfoList[DiamondPacks[1]] then
-        SelectedPackInfo = DiamondPackInfoList[DiamondPacks[1]]
-        DiamondInfoLabel:Set(
-            string.format(
-                "Pack: %s\nQuantidade: %s diamantes\nPreço: %s %s\nID do Pack: %d",
-                SelectedPackInfo.DisplayName,
-                SelectedPackInfo.Amount,
-                SelectedPackInfo.Price,
-                SelectedPackInfo.Currency,
-                SelectedPackInfo.PackId
-            ), 
-            4483362458, 
-            Color3.fromRGB(255, 255, 255), 
-            false
-        )
-    end
 end
 
 -- Criar dropdown inicial
@@ -600,63 +581,6 @@ DiamondsTab:CreateButton({
         UpdateDiamondPacks()
         CreateDiamondDropdown()
         Notify("Atualizado", "Lista de packs atualizada: " .. #DiamondPacks .. " packs encontrados")
-    end
-})
-
--------------------------------------------------
--- SETTINGS
--------------------------------------------------
-
-SettingsTab:CreateDropdown({
-    Name = "Tema",
-    Options = {"Default","Aether","Discord","Dark","Light","Midnight","Aqua"},
-    CurrentOption = {"Default"},
-    Callback = function(opt)
-        Rayfield:LoadTheme(opt[1])
-        Notify("Tema", "Tema alterado para: " .. opt[1])
-    end
-})
-
-SettingsTab:CreateToggle({
-    Name = "Animações",
-    CurrentValue = true,
-    Callback = function(v)
-        Rayfield:ToggleAnimations(v)
-        Notify("Animações", v and "Ativadas" or "Desativadas")
-    end
-})
-
-SettingsTab:CreateToggle({
-    Name = "Notificações",
-    CurrentValue = true,
-    Callback = function(v)
-        Notify("Notificações", v and "Ativadas" or "Desativadas")
-    end
-})
-
-SettingsTab:CreateButton({
-    Name = "Salvar configurações",
-    Callback = function()
-        Rayfield:SaveConfiguration()
-        Notify("Salvo", "Configurações salvas com sucesso.")
-    end
-})
-
-SettingsTab:CreateButton({
-    Name = "Recarregar Interface",
-    Callback = function()
-        Notify("Recarregando", "A interface será recarregada...")
-        wait(1)
-        Rayfield:Destroy()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/seu-repositorio/script.lua"))()
-    end
-})
-
-SettingsTab:CreateButton({
-    Name = "Fechar Interface",
-    Callback = function()
-        Rayfield:Destroy()
-        Notify("Interface", "Interface fechada")
     end
 })
 
